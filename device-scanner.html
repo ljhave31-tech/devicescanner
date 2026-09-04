@@ -54,6 +54,8 @@
   #scanBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(56,189,248,0.4)}
   #downloadBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,183,127,0.4)}
   .hidden{display:none}
+  .update-link{display:inline-block;margin-top:4px;padding:4px 12px;background:#38bdf8;color:#0f172a;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none}
+  .update-link:hover{background:#7dd3fc}
 </style>
 </head>
 <body>
@@ -384,6 +386,37 @@
       </div>
     </div>
 
+    <!-- System Software Updates -->
+    <div class="card">
+      <h2>System Software Updates</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Operating System</div>
+          <div class="info-value" id="osVersion">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">OS Status</div>
+          <div class="info-value" id="osStatus">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Browser</div>
+          <div class="info-value" id="browserVersion">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Browser Status</div>
+          <div class="info-value" id="browserStatus">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Update Feasibility</div>
+          <div class="info-value" id="updateFeasibility">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Recommended Action</div>
+          <div class="info-value" id="updateAction">--</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Issues -->
     <div class="card">
       <h2>System Issues</h2>
@@ -448,6 +481,7 @@ function startScan(){
     detectPermissions();
     setTimeout(()=>{
       estimateBatteryAge();
+      checkSoftwareUpdates();
       analyzeUpgrades();
       analyzeIssues();
       generateSummary();
@@ -808,6 +842,156 @@ async function detectPermissions(){
   }
 }
 
+function checkSoftwareUpdates(){
+  const ua = navigator.userAgent;
+
+  // OS detection and version check
+  let osName = 'Unknown';
+  let osVer = 'Unknown';
+  if (ua.includes('Android')) {
+    osName = 'Android';
+    osVer = (ua.match(/Android\s([0-9.]+)/)||['',''])[1];
+  } else if (ua.includes('iPhone')||ua.includes('iPad')||ua.includes('iPod')) {
+    osName = 'iOS';
+    osVer = (ua.match(/OS\s([0-9_]+)/)||['',''])[1].replace('_','.');
+  }
+  const osMajor = parseInt((osVer||'0').split('.')[0]) || 0;
+  document.getElementById('osVersion').textContent = osName + ' ' + osVer;
+
+  // Browser detection and version check
+  let browserName = '';
+  let browserVer = '';
+  if (ua.includes('Edg/')) { browserName = 'Edge'; browserVer = (ua.match(/Edg\/([0-9.]+)/)||['',''])[1]; }
+  else if (ua.includes('OPR/')) { browserName = 'Opera'; browserVer = (ua.match(/OPR\/([0-9.]+)/)||['',''])[1]; }
+  else if (ua.includes('Firefox/')) { browserName = 'Firefox'; browserVer = (ua.match(/Firefox\/([0-9.]+)/)||['',''])[1]; }
+  else if (ua.includes('Chrome/')) { browserName = 'Chrome'; browserVer = (ua.match(/Chrome\/([0-9.]+)/)||['',''])[1]; }
+  else if (ua.includes('Safari/')) { browserName = 'Safari'; browserVer = (ua.match(/Version\/([0-9.]+)/)||['',''])[1]; }
+  const browserMajor = parseInt((browserVer||'0').split('.')[0]) || 0;
+  document.getElementById('browserVersion').textContent = browserName + ' ' + (browserVer || 'Unknown');
+
+  // Known latest versions (2026)
+  const latestVersions = {
+    Android: 16,
+    iOS: 18,
+    Chrome: 152,
+    Edge: 152,
+    Firefox: 142,
+    Safari: 18,
+    Opera: 120
+  };
+  const minSupported = {
+    Android: 10,
+    iOS: 15,
+    Chrome: 120,
+    Edge: 120,
+    Firefox: 115,
+    Safari: 15,
+    Opera: 106
+  };
+
+  // OS status
+  const latestOS = latestVersions[osName] || 0;
+  const minOS = minSupported[osName] || 0;
+  let osStatusHtml = '';
+  if (osMajor > 0 && latestOS > 0) {
+    const diff = latestOS - osMajor;
+    if (osMajor < minOS) {
+      osStatusHtml = osMajor + ' is unsupported (' + diff + ' versions behind latest ' + latestOS + ')';
+      osStatusHtml += ' <span class="badge badge-err">Unsupported</span>';
+      issues.push({text: osName + ' ' + osMajor + ' is outdated and unsupported (' + diff + ' versions behind latest)', type: 'warn'});
+    } else if (diff > 2) {
+      osStatusHtml = osMajor + ' is outdated (' + diff + ' versions behind latest ' + latestOS + ')';
+      osStatusHtml += ' <span class="badge badge-warn">Outdated</span>';
+      issues.push({text: osName + ' ' + osMajor + ' is outdated (' + diff + ' versions behind latest ' + latestOS + ')', type: 'warn'});
+    } else if (diff > 0) {
+      osStatusHtml = osMajor + ' is current (' + latestOS + ' latest)';
+      osStatusHtml += ' <span class="badge badge-ok">Up to date</span>';
+    } else {
+      osStatusHtml = osName + ' ' + osMajor + ' is the latest version';
+      osStatusHtml += ' <span class="badge badge-ok">Current</span>';
+    }
+  } else {
+    osStatusHtml = '<span class="badge badge-info">Unknown</span>';
+  }
+  document.getElementById('osStatus').innerHTML = osStatusHtml;
+
+  // Browser status
+  const latestBrowser = latestVersions[browserName] || 0;
+  const minBrowser = minSupported[browserName] || 0;
+  let browserStatusHtml = '';
+  if (browserMajor > 0 && latestBrowser > 0) {
+    const bdiff = latestBrowser - browserMajor;
+    if (browserMajor < minBrowser) {
+      browserStatusHtml = browserName + ' ' + browserVer + ' is unsupported';
+      browserStatusHtml += ' <span class="badge badge-err">Unsupported</span>';
+      issues.push({text: browserName + ' ' + browserVer + ' is unsupported (' + bdiff + ' versions behind latest)', type: 'warn'});
+    } else if (bdiff > 4) {
+      browserStatusHtml = browserName + ' ' + browserVer + ' is outdated';
+      browserStatusHtml += ' <span class="badge badge-warn">Outdated</span>';
+      issues.push({text: browserName + ' ' + browserVer + ' is outdated (' + bdiff + ' versions behind latest ' + latestBrowser + ')', type: 'info'});
+    } else {
+      browserStatusHtml = browserName + ' ' + browserVer + ' is current (' + latestBrowser + ' latest)';
+      browserStatusHtml += ' <span class="badge badge-ok">Up to date</span>';
+    }
+  } else {
+    browserStatusHtml = '<span class="badge badge-info">Unknown</span>';
+  }
+  document.getElementById('browserStatus').innerHTML = browserStatusHtml;
+
+  // Update feasibility check
+  const ram = navigator.deviceMemory || 0;
+  const cores = navigator.hardwareConcurrency || 0;
+  let totalGBStorage = 0;
+  try {
+    if ('storage' in navigator && 'estimate' in navigator.storage) {
+      navigator.storage.estimate().then(est => {
+        totalGBStorage = Math.round(est.quota / 1073741824 * 100) / 100;
+      });
+    }
+  } catch(e) {}
+
+  let feasible = true;
+  let reasons = [];
+  if (ram > 0 && ram < 4) { feasible = false; reasons.push('RAM only ' + ram + 'GB (4GB+ recommended)'); }
+  if (cores > 0 && cores < 4) { feasible = false; reasons.push('only ' + cores + ' CPU cores'); }
+
+  let feasHtml;
+  if (feasible) {
+    feasHtml = '<span class="ok-text">Device can handle updates</span>';
+  } else {
+    feasHtml = '<span class="warn-text">Not recommended — ' + reasons.join('; ') + '</span>';
+  }
+  document.getElementById('updateFeasibility').innerHTML = feasHtml;
+
+  // Recommended action with links
+  let actionHtml = '';
+  const needsOSUpdate = osMajor > 0 && osMajor < minOS;
+  const needsBrowserUpdate = browserMajor > 0 && browserMajor < minBrowser;
+
+  if (needsOSUpdate) {
+    if (feasible) {
+      if (osName === 'Android') {
+        actionHtml = 'Go to <strong>Settings › System › System Update</strong> to check for Android updates.';
+      } else if (osName === 'iOS') {
+        actionHtml = 'Go to <strong>Settings › General › Software Update</strong> to check for iOS updates.';
+      }
+    } else {
+      actionHtml = '<span class="warn-text">OS update not recommended — device specs too low. Consider a replacement.</span>';
+    }
+  } else if (needsBrowserUpdate) {
+    if (osName === 'Android') {
+      actionHtml = 'Update <strong>' + browserName + '</strong> via the <a href="https://play.google.com/store/apps/details?id=com.android.chrome" target="_blank" class="update-link">Google Play Store</a>.';
+    } else if (osName === 'iOS') {
+      actionHtml = 'Update <strong>' + browserName + '</strong> via the <strong>App Store</strong> › Updates.';
+    } else {
+      actionHtml = 'Update <strong>' + browserName + '</strong> to the latest version.';
+    }
+  } else {
+    actionHtml = '<span class="ok-text">All software is up to date. No action needed.</span>';
+  }
+  document.getElementById('updateAction').innerHTML = actionHtml;
+}
+
 function analyzeUpgrades(){
   const cores = navigator.hardwareConcurrency || 0;
   const ram = navigator.deviceMemory || 0;
@@ -1008,6 +1192,14 @@ function downloadInfo(){
     'Battery: ' + getText('batteryUpgradeDesc') + ' [' + getText('batteryUpgradeBadge') + ']',
     'GPU: ' + getText('gpuUpgradeDesc') + ' [' + getText('gpuUpgradeBadge') + ']',
     'Network: ' + getText('netUpgradeDesc') + ' [' + getText('netUpgradeBadge') + ']',
+    sep,
+    '[SYSTEM SOFTWARE UPDATES]',
+    'Operating System: ' + getText('osVersion'),
+    'OS Status: ' + getText('osStatus'),
+    'Browser: ' + getText('browserVersion'),
+    'Browser Status: ' + getText('browserStatus'),
+    'Update Feasibility: ' + getText('updateFeasibility'),
+    'Recommended Action: ' + getText('updateAction'),
     sep,
     '[SYSTEM ISSUES]',
     issues.length === 0 ? 'No issues detected. Your device appears to be in good condition.' : issues.map(i => '[' + i.type.toUpperCase() + '] ' + i.text).join('\n'),
