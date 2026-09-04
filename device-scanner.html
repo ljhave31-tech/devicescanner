@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Device Scanner</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+  body{background:#0f172a;color:#e2e8f0;min-height:100vh;padding:16px}
+  .container{max-width:900px;margin:0 auto}
+  header{text-align:center;padding:24px 0;border-bottom:1px solid #334159;margin-bottom:24px}
+  header h1{font-size:28px;font-weight:700;background:linear-gradient(135deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  header p{font-size:14px;color:#94a3b8;margin-top:6px}
+  .card{background:#1e293b;border:1px solid #334159;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 4px 6px rgba(0,0,0,0.3)}
+  .card h2{font-size:18px;margin-bottom:14px;color:#38bdf8;border-bottom:1px solid #334159;padding-bottom:8px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+  .info-item{padding:8px 0;border-bottom:1px dashed #334159}
+  .info-label{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8}
+  .info-value{font-size:16px;font-weight:600;color:#f1f5f9;margin-top:2px}
+  .full-row{grid-column:1/-1}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase}
+  .badge-ok{background:#065f44;color:#6ee7b7}
+  .badge-warn{background:#78350f;color:#fcd34d}
+  .badge-err{background:#7f1d1d;color:#fca5a5}
+  .badge-info{background:#1e3a8a;color:#93c5fd}
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .status-item{background:#0f172a;border:1px solid #334159;border-radius:8px;padding:12px;text-align:center}
+  .status-item .status-label{font-size:12px;color:#94a3b8;text-transform:uppercase;margin-bottom:4px}
+  .status-item .status-value{font-size:20px;font-weight:700}
+  .warn-text{color:#fcd34d}
+  .ok-text{color:#6ee7b7}
+  .err-text{color:#fca5a5}
+  .info-text{color:#93c5fd}
+  .upgrade-section{background:#0f172a;border:1px solid #334159;border-radius:8px;padding:14px;margin-top:12px}
+  .upgrade-item{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #1e293b}
+  .upgrade-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+  .upgrade-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .upgrade-cpu{background:#38bdf8}
+  .upgrade-ram{background:#a78bfa}
+  .upgrade-storage{background:#f59e0b}
+  .upgrade-battery{background:#10b981}
+  .upgrade-content{flex:1}
+  .upgrade-title{font-size:15px;font-weight:600;margin-bottom:4px}
+  .upgrade-desc{font-size:13px;color:#94a3b8;line-height:1.5}
+  .upgrade-badge{margin-top:4px}
+  .issue-list{margin-top:10px}
+  .issue-item{display:flex;align-items:center;gap:8px;padding:8px;background:#7f1d1d;border:1px solid #b91c1c;border-radius:6px;color:#fecaca;font-size:14px}
+  .issue-item.ok{background:#065f33;border-color:#10b981;color:#d1fae5}
+  .progress-container{width:100%;height:10px;background:#334159;border-radius:5px;overflow:hidden;margin-top:6px}
+  .progress-fill{height:100%;border-radius:5px;transition:width 0.5s}
+  .footer{text-align:center;padding:20px;font-size:12px;color:#64748b;margin-top:10px}
+  @media(max-width:600px){.info-grid{grid-template-columns:1fr}.status-grid{grid-template-columns:1fr}}
+  #scanBtn{background:linear-gradient(135deg,#38bdf8,#7c3aed);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  #scanBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(56,189,248,0.4)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Device Scanner</h1>
+    <p>Hardware detection via browser APIs</p>
+  </header>
+
+  <button id="scanBtn" onclick="startScan()">Start Device Scan</button>
+
+  <div id="results" class="hidden">
+
+    <!-- Device Identity -->
+    <div class="card">
+      <h2>Device Identity</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">User Agent</div>
+          <div class="info-value" id="userAgent">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Platform</div>
+          <div class="info-value" id="platform">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Device Type</div>
+          <div class="info-value" id="deviceType">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">OS / Browser</div>
+          <div class="info-value" id="osBrowser">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Mobile</div>
+          <div class="info-value" id="isMobile">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hardware -->
+    <div class="card">
+      <h2>Hardware Overview</h2>
+      <div class="info-grid">
+        <div class="status-item">
+          <div class="status-label">CPU Cores</div>
+          <div class="status-value" id="cpuCores">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">RAM</div>
+          <div class="status-value" id="deviceMemory">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Touch Points</div>
+          <div class="status-value" id="touchPoints">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Architecture</div>
+          <div class="status-value" id="arch">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">GPU</div>
+          <div class="status-value" id="gpu">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Pixel Ratio</div>
+          <div class="status-value" id="pixelRatio">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">GPU Vendor / Renderer</div>
+          <div class="info-value" id="gpuDetails">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">WebGL Support</div>
+          <div class="info-value" id="webglSupport">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Display -->
+    <div class="card">
+      <h2>Display Information</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Screen Resolution</div>
+          <div class="info-value" id="screenRes">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Color Depth</div>
+          <div class="info-value" id="colorDepth">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Screen Size (inches)</div>
+          <div class="info-value" id="screenSize">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Orientation</div>
+          <div class="info-value" id="orientation">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Available Screen</div>
+          <div class="info-value" id="availScreen">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Storage -->
+    <div class="card">
+      <h2>Storage Analysis</h2>
+      <div class="info-grid">
+        <div class="info-item full-row">
+          <div class="info-label">Storage Breakdown</div>
+          <div class="info-value" id="storageBreakdown">--</div>
+          <div class="progress-container"><div class="progress-fill" id="storageBar" style="width:0%;background:#38bdf8"></div></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Used</div>
+          <div class="info-value" id="storageUsed">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Total</div>
+          <div class="info-value" id="storageTotal">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Free</div>
+          <div class="info-value" id="storageFree">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Storage Health</div>
+          <div class="info-value" id="storageHealth"><span class="badge" id="storageBadge">--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Battery -->
+    <div class="card">
+      <h2>Battery & Power</h2>
+      <div class="info-grid">
+        <div class="status-item">
+          <div class="status-label">Battery Level</div>
+          <div class="status-value" id="batteryLevel">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Charging</div>
+          <div class="status-value" id="charging">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Charging Time</div>
+          <div class="status-value" id="chargingTime">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Discharge Time</div>
+          <div class="status-value" id="dischargeTime">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Battery Health</div>
+          <div class="info-value" id="batteryHealth"><span class="badge" id="batteryBadge">--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Network -->
+    <div class="card">
+      <h2>Network Information</h2>
+      <div class="info-grid">
+        <div class="status-item">
+          <div class="status-label">Connection Type</div>
+          <div class="status-value" id="netType">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Effective Type</div>
+          <div class="status-value" id="effType">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Downlink (Mbps)</div>
+          <div class="status-value" id="downlink">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">RTT (ms)</div>
+          <div class="status-value" id="rtt">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Network Health</div>
+          <div class="info-value" id="netHealth"><span class="badge" id="netBadge">--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Media Devices -->
+    <div class="card">
+      <h2>Media Devices</h2>
+      <div class="info-grid">
+        <div class="info-item full-row">
+          <div class="info-label">Cameras</div>
+          <div class="info-value" id="cameras">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Microphones</div>
+          <div class="info-value" id="microphones">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Speakers</div>
+          <div class="info-value" id="speakers">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Audio Output Devices</div>
+          <div class="info-value" id="audioOutputs">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Permissions -->
+    <div class="card">
+      <h2>Permission Status</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Camera Permission</div>
+          <div class="info-value" id="permCamera">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Microphone Permission</div>
+          <div class="info-value" id="permMic">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Geolocation Permission</div>
+          <div class="info-value" id="permGeo">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upgrade Recommendations -->
+    <div class="card">
+      <h2>Upgrade Recommendations</h2>
+      <div id="upgradeList">
+        <div class="upgrade-section">
+          <div class="upgrade-item">
+            <div class="upgrade-icon upgrade-storage"><span>💾</span></div>
+            <div class="upgrade-content">
+              <div class="upgrade-title">Storage Assessment</div>
+              <div class="upgrade-desc" id="storageUpgradeDesc">Analyzing storage capacity...</div>
+              <div class="upgrade-badge" id="storageUpgradeBadge"></div>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="upgrade-icon upgrade-ram"><span>🧠</span></div>
+            <div class="upgrade-content">
+              <div class="upgrade-title">Memory (RAM) Assessment</div>
+              <div class="upgrade-desc" id="ramUpgradeDesc">Checking available memory...</div>
+              <div class="upgrade-badge" id="ramUpgradeBadge"></div>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="upgrade-icon upgrade-cpu"><span>🔧</span></div>
+            <div class="upgrade-content">
+              <div class="upgrade-title">Performance Assessment</div>
+              <div class="upgrade-desc" id="cpuUpgradeDesc">Evaluating processing power...</div>
+              <div class="upgrade-badge" id="cpuUpgradeBadge"></div>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="upgrade-icon upgrade-battery"><span>🔋</span></div>
+            <div class="upgrade-content">
+              <div class="upgrade-title">Battery Assessment</div>
+              <div class="upgrade-desc" id="batteryUpgradeDesc">Checking power management...</div>
+              <div class="upgrade-badge" id="batteryUpgradeBadge"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Issues -->
+    <div class="card">
+      <h2>System Issues</h2>
+      <div id="issueList" class="issue-list">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="card">
+      <h2>Scan Summary</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="status-label">Overall Health</div>
+          <div class="status-value" id="overallHealth">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Issues Found</div>
+          <div class="status-value" id="issuesCount">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Upgrades Recommended</div>
+          <div class="status-value" id="upgradesCount">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Device Category</div>
+          <div class="status-value" id="deviceCategory">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by Device Scanner • Powered by Web APIs<br>
+    NOTE: Browser security limits access to actual hardware details. This scan uses all available web APIs for informational purposes.
+  </div>
+</div>
+
+<script>
+let gpuInfo = {vendor:'', renderer:''};
+let issues = [];
+let upgradeRecs = [];
+
+function startScan(){
+  document.getElementById('scanBtn').textContent = 'Scanning...';
+  document.getElementById('scanBtn').disabled = true;
+  setTimeout(()=>{
+    detectDevice();
+    detectCPU();
+    detectGPU();
+    detectScreen();
+    detectStorage();
+    detectBattery();
+    detectNetwork();
+    detectMediaDevices();
+    detectPermissions();
+    setTimeout(()=>{
+      analyzeUpgrades();
+      analyzeIssues();
+      generateSummary();
+      document.getElementById('scanBtn').style.display='none';
+      document.getElementById('results').classList.remove('hidden');
+    }, 800);
+  }, 500);
+}
+
+function detectDevice(){
+  const ua = navigator.userAgent;
+  document.getElementById('userAgent').textContent = ua;
+  document.getElementById('platform').textContent = navigator.platform || 'Unknown';
+
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  document.getElementById('isMobile').textContent = isMobile ? 'Yes' : 'No';
+
+  let deviceType = 'Desktop';
+  if (/tablet|ipad|playbook|silk/i.test(ua)) deviceType = 'Tablet';
+  else if (/mobile|iphone|android.*mobile/i.test(ua)) deviceType = 'Phone';
+  else if (isMobile) deviceType = 'Mobile Device';
+
+  if ('maxTouchPoints' in navigator) {
+    if (navigator.maxTouchPoints > 1 && !isMobile) deviceType = 'Convertible';
+  }
+  document.getElementById('deviceType').textContent = deviceType;
+
+  let osBrowser = '';
+  if (ua.includes('Edg/')) osBrowser = 'Microsoft Edge';
+  else if (ua.includes('Chrome/')) osBrowser = 'Google Chrome';
+  else if (ua.includes('Firefox/')) osBrowser = 'Mozilla Firefox';
+  else if (ua.includes('Safari/')) osBrowser = 'Safari';
+  else if (ua.includes('OPR/')) osBrowser = 'Opera';
+
+  let os = '';
+  if (ua.includes('Android')) os = 'Android ' + (ua.match(/Android\s([0-9.]+)/)||[])[1];
+  else if (ua.includes('iPhone')||ua.includes('iPad')||ua.includes('iPod')) os = 'iOS ' + (ua.match(/OS\s([0-9_]+)/)||[])[1].replace('_','.');
+  else if (ua.includes('Windows')) os = 'Windows ' + (ua.match(/Windows NT ([0-9.]+)/)||[])[1];
+  else if (ua.includes('Macintosh')) os = 'macOS ' + (ua.match(/Mac OS X ([0-9.]+)/)||[])[1];
+  else if (ua.includes('Linux')) os = 'Linux';
+
+  document.getElementById('osBrowser').textContent = os + ' / ' + osBrowser;
+  document.getElementById('arch').textContent = navigator.cpuClass || navigator.platform || 'Unknown';
+}
+
+function detectCPU(){
+  const cores = navigator.hardwareConcurrency || 0;
+  document.getElementById('cpuCores').textContent = cores > 0 ? cores : 'Not Available (Privacy-Restricted)';
+  if(cores === 0) issues.push({text:'CPU core count not exposed by browser (privacy feature)', type:'info'});
+}
+
+function detectGPU(){
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  const info = document.getElementById('webglSupport');
+  const gpuEl = document.getElementById('gpu');
+
+  if (gl) {
+    info.innerHTML = '<span class="badge badge-ok">Available</span>';
+    const debug = gl.getExtension('WEBGL_debug');
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+
+    if (debugInfo) {
+      gpuInfo.vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+      gpuInfo.renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      gpuEl.textContent = gpuInfo.renderer;
+      document.getElementById('gpuDetails').textContent = 'Vendor: ' + (gpuInfo.vendor||'Hidden') + ' | Renderer: ' + (gpuInfo.renderer||'Hidden');
+    } else {
+      gpuEl.textContent = 'Detected (details restricted)';
+      document.getElementById('gpuDetails').textContent = 'GPU detected but details blocked by privacy settings';
+      issues.push({text:'WebGL debug info restricted', type:'info'});
+    }
+  } else {
+    info.innerHTML = '<span class="badge badge-warn">Not Available</span>';
+    gpuEl.textContent = 'No WebGL';
+    document.getElementById('gpuDetails').textContent = 'WebGL context could not be initialized';
+    issues.push({text:'WebGL is not supported or disabled', type:'warn'});
+  }
+}
+
+function detectScreen(){
+  document.getElementById('screenRes').textContent = screen.width + ' x ' + screen.height + ' px';
+  document.getElementById('availScreen').textContent = screen.availWidth + ' x ' + screen.availHeight + ' px';
+  document.getElementById('colorDepth').textContent = screen.colorDepth + '-bit';
+  document.getElementById('pixelRatio').textContent = window.devicePixelRatio.toFixed(2) + 'x';
+
+  document.getElementById('orientation').textContent = screen.orientation ? screen.orientation.type : 'Unknown';
+
+  const w = screen.width, h = screen.height;
+  const diagPixels = Math.sqrt(w*w + h*h);
+  const diagInches = diagPixels / (window.devicePixelRatio * 96);
+  document.getElementById('screenSize').textContent = diagInches.toFixed(1) + '" diagonal';
+}
+
+async function detectStorage(){
+  try {
+    if ('storage' in navigator && 'estimate' in navigator.storage) {
+      const estimate = await navigator.storage.estimate();
+      const quota = estimate.quota || 0;
+      const usage = estimate.usage || 0;
+      const totalGB = Math.round(quota / 1073741824 * 100) / 100;
+      const usedGB = Math.round(usage / 1073741824 * 100) / 100;
+      const freeGB = Math.max(0, totalGB - usedGB);
+      const pctUsed = totalGB > 0 ? Math.round((usedGB / totalGB) * 100) : 0;
+
+      document.getElementById('storageUsed').textContent = usedGB > 0 ? usedGB + ' GB' : '0 GB';
+      document.getElementById('storageTotal').textContent = totalGB > 0 ? totalGB + ' GB' : '--';
+      document.getElementById('storageFree').textContent = freeGB > 0 ? freeGB + ' GB' : '--';
+      document.getElementById('storageBreakdown').textContent = 'Browser storage quota available on this device';
+
+      const bar = document.getElementById('storageBar');
+      bar.style.width = pctUsed + '%';
+      bar.style.background = pctUsed > 85 ? '#ef4444' : (pctUsed > 70 ? '#f59e0b' : '#10b981');
+
+      const badge = document.getElementById('storageBadge');
+      if (pctUsed > 85) {
+        badge.textContent = 'Critically Full';
+        badge.className = 'badge badge-err';
+      } else if (pctUsed > 70) {
+        badge.textContent = 'Warning';
+        badge.className = 'badge badge-warn';
+      } else {
+        badge.textContent = 'Healthy';
+        badge.className = 'badge badge-ok';
+      }
+
+      if (pctUsed > 85) issues.push({text:'Browser storage quota is nearly full (' + pctUsed + '% used)', type:'warn'});
+    } else {
+      document.getElementById('storageTotal').textContent = 'Not Available';
+      document.getElementById('storageBadge').textContent = 'Unknown';
+      issues.push({text:'Storage API not supported', type:'info'});
+    }
+  } catch(e) {
+    document.getElementById('storageTotal').textContent = 'Error';
+    issues.push({text:'Could not access storage information', type:'info'});
+  }
+}
+
+async function detectBattery(){
+  try {
+    if ('getBattery' in navigator) {
+      const bat = await navigator.getBattery();
+      const pct = Math.round(bat.level * 100);
+      document.getElementById('batteryLevel').innerHTML = pct + '%';
+
+      const chargingText = bat.charging ? '<span class="ok-text">Yes</span>' : '<span class="warn-text">No</span>';
+      document.getElementById('charging').innerHTML = chargingText;
+
+      document.getElementById('chargingTime').textContent = bat.chargingTime !== Infinity ? Math.round(bat.chargingTime/60) + ' min' : '--';
+      document.getElementById('dischargeTime').textContent = bat.dischargingTime !== Infinity ? Math.round(bat.dischargingTime/60) + ' min' : '--';
+
+      const badge = document.getElementById('batteryBadge');
+      if (pct < 20 && !bat.charging) {
+        badge.textContent = 'Critical';
+        badge.className = 'badge badge-err';
+        issues.push({text:'Battery level is critically low (' + pct + '%)', type:'warn'});
+      } else if (pct < 40 && !bat.charging) {
+        badge.textContent = 'Low';
+        badge.className = 'badge badge-warn';
+      } else {
+        badge.textContent = 'Good';
+        badge.className = 'badge badge-ok';
+      }
+    } else {
+      document.getElementById('batteryLevel').textContent = 'Not Available';
+      document.getElementById('batteryBadge').textContent = 'Unknown';
+      issues.push({text:'Battery Status API not supported', type:'info'});
+    }
+  } catch(e) {
+    document.getElementById('batteryLevel').textContent = 'Unknown';
+    issues.push({text:'Could not access battery information', type:'info'});
+  }
+}
+
+function detectNetwork(){
+  if ('connection' in navigator) {
+    const c = navigator.connection;
+    document.getElementById('netType').textContent = c.type || 'Unknown';
+    document.getElementById('effType').textContent = c.effectiveType || 'Unknown';
+    document.getElementById('downlink').textContent = c.downlink || '--';
+    document.getElementById('rtt').textContent = c.rtt || '--';
+
+    const badge = document.getElementById('netBadge');
+    if (c.effectiveType === 'slow-2g' || c.effectiveType === '2g') {
+      badge.textContent = 'Poor';
+      badge.className = 'badge badge-err';
+      issues.push({text:'Network connection is slow (' + c.effectiveType + ')', type:'warn'});
+    } else if (c.effectiveType === '3g') {
+      badge.textContent = 'Moderate';
+      badge.className = 'badge badge-warn';
+    } else {
+      badge.textContent = 'Good';
+      badge.className = 'badge badge-ok';
+    }
+  } else {
+    document.getElementById('netType').textContent = 'Not Available';
+    document.getElementById('netBadge').textContent = 'Unknown';
+    issues.push({text:'Network Information API not supported', type:'info'});
+  }
+}
+
+async function detectMediaDevices(){
+  try {
+    if ('mediaDevices' in window && 'enumerateDevices' in navigator.mediaDevices) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      let cameras = 0, mics = 0, speakers = 0, audioOut = 0;
+
+      devices.forEach(d => {
+        if (d.kind === 'videoinput') cameras++;
+        else if (d.kind === 'audioinput') mics++;
+        else if (d.kind === 'audiooutput') {
+          speakers++;
+          audioOut++;
+        }
+      });
+
+      const camText = cameras > 0 ? cameras + ' camera(s)' : 'None detected';
+      const micText = mics > 0 ? mics + ' microphone(s)' : 'None detected';
+
+      let camHtml = cameras > 0 ? `<span class="ok-text">${camText}</span>` : `<span class="warn-text">No camera detected</span>`;
+      let micHtml = mics > 0 ? `<span class="ok-text">${micText}</span>` : `<span class="warn-text">No microphone detected</span>`;
+      let spkHtml = audioOut > 0 ? `<span class="ok-text">${audioOut} output device(s)</span>` : `<span class="info-text">Unknown</span>`;
+
+      document.getElementById('cameras').innerHTML = camHtml;
+      document.getElementById('microphones').innerHTML = micHtml;
+      document.getElementById('speakers').innerHTML = spkHtml;
+      document.getElementById('audioOutputs').innerHTML = spkHtml;
+
+      if (cameras === 0) issues.push({text:'No camera detected or permission denied', type:'warn'});
+      if (mics === 0) issues.push({text:'No microphone detected or permission denied', type:'warn'});
+    } else {
+      document.getElementById('cameras').textContent = 'Not Available';
+      document.getElementById('microphones').textContent = 'Not Available';
+      issues.push({text:'Media devices API not supported', type:'info'});
+    }
+  } catch(err) {
+    document.getElementById('cameras').textContent = 'Permission denied';
+    document.getElementById('microphones').textContent = 'Permission denied';
+    issues.push({text:'Could not enumerate media devices (permission required)', type:'info'});
+  }
+}
+
+async function detectPermissions(){
+  const perms = [
+    {name:'camera', el:'permCamera'},
+    {name:'microphone', el:'permMic'},
+    {name:'geolocation', el:'permGeo'}
+  ];
+
+  for(const p of perms){
+    try {
+      if ('permissions' in navigator) {
+        const status = await navigator.permissions.query({name:p.name});
+        const badge = document.getElementById(p.el);
+        if(status.state === 'granted') badge.innerHTML = '<span class="badge badge-ok">Granted</span>';
+        else if(status.status === 'denied') badge.innerHTML = '<span class="badge badge-err">Denied</span>';
+        else badge.innerHTML = '<span class="badge badge-info">Prompt</span>';
+      } else {
+        document.getElementById(p.el).textContent = 'Not Available';
+      }
+    } catch(e) {
+      document.getElementById(p.el).textContent = 'Unknown';
+    }
+  }
+}
+
+function analyzeUpgrades(){
+  const cores = navigator.hardwareConcurrency || 0;
+  const ram = navigator.deviceMemory || 0;
+  let count = 0;
+
+  // Storage
+  let storageDesc = 'Browser-managed storage. Physical storage upgrades are handled at OS/hardware level.';
+  let storageBadge = '<span class="badge badge-info">N/A (web)</span>';
+  count++;
+
+  // RAM
+  let ramDesc = ram > 0 ? ram + ' GB detected. Most mobile devices have soldered RAM and cannot be upgraded.' : 'RAM detection unavailable due to browser privacy restrictions. On tablets, RAM is typically soldered and non-upgradeable.';
+  let ramBadge;
+  if (!ram) ramBadge = '<span class="badge badge-info">N/A (web)</span>';
+  else if (ram < 4) ramBadge = '<span class="badge badge-warn">Consider 4GB+</span>';
+  else if (ram < 8) ramBadge = '<span class="badge badge-ok">Adequate</span>';
+  else ramBadge = '<span class="badge badge-ok">Sufficient</span>';
+  count++;
+
+  // CPU
+  let cpuDesc = cores > 0 ? cores + ' logical cores detected. On tablets, the processor is typically soldered and non-upgradeable.' : 'CPU core count not exposed. Tablets use integrated/soldered processors that cannot be upgraded.';
+  let cpuBadge = cores > 0 ? (cores < 4 ? '<span class="badge badge-warn">Limited cores</span>' : '<span class="badge badge-ok">Multi-core</span>') : '<span class="badge badge-info">N/A (web)</span>';
+  count++;
+
+  // Battery
+  let battDesc = 'Battery health depends on age and charge cycles. Tablet batteries are often replaceable by service centers but not user-upgradeable.';
+  let battBadge = '<span class="badge badge-info">N/A (web)</span>';
+  count++;
+
+  document.getElementById('storageUpgradeDesc').textContent = storageDesc;
+  document.getElementById('storageUpgradeBadge').innerHTML = storageBadge;
+  document.getElementById('ramUpgradeDesc').textContent = ramDesc;
+  document.getElementById('ramUpgradeBadge').innerHTML = ramBadge;
+  document.getElementById('cpuUpgradeDesc').textContent = cpuDesc;
+  document.getElementById('cpuUpgradeBadge').innerHTML = cpuBadge;
+  document.getElementById('batteryUpgradeDesc').textContent = battDesc;
+  document.getElementById('batteryUpgradeBadge').innerHTML = battBadge;
+  document.getElementById('upgradesCount').innerHTML = '<span class="info-text">' + count + ' recommendations</span>';
+}
+
+function analyzeIssues(){
+  const list = document.getElementById('issueList');
+  if(issues.length === 0){
+    list.innerHTML = '<div class="issue-item ok"><span>✓</span><span>No issues detected. Your device appears to be in good condition.</span></div>';
+  } else {
+    list.innerHTML = issues.map(i => {
+      const cls = i.type === 'warn' ? '' : (i.type === 'err' ? '' : ' ok');
+      const icon = i.type === 'warn' ? '⚠' : (i.type === 'err' ? '✗' : 'ℹ');
+      return `<div class="issue-item${cls}"><span>${icon}</span><span>${i.text}</span></div>`;
+    }).join('');
+  }
+}
+
+function generateSummary(){
+  const warnIssues = issues.filter(i => i.type === 'warn' || i.type === 'err').length;
+  document.getElementById('issuesCount').innerHTML = warnIssues > 0 ? '<span class="err-text">' + warnIssues + '</span>' : '<span class="ok-text">0</span>';
+
+  let overall = 'Good';
+  let overallColor = 'ok-text';
+  if (warnIssues > 2) { overall = 'Needs Attention'; overallColor = 'err-text'; }
+  else if (warnIssues > 0) { overall = 'Minor Issues'; overallColor = 'warn-text'; }
+  document.getElementById('overallHealth').innerHTML = `<span class="${overallColor}">${overall}</span>`;
+
+  let category = document.getElementById('deviceType').textContent;
+  document.getElementById('deviceCategory').textContent = category;
+
+  document.getElementById('upgradesCount').innerHTML = '<span class="info-text">4 assessments</span>';
+}
+</script>
+</body>
+</html>
