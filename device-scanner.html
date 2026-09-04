@@ -52,6 +52,7 @@
   @media(max-width:600px){.info-grid{grid-template-columns:1fr}.status-grid{grid-template-columns:1fr}}
   #scanBtn{background:linear-gradient(135deg,#38bdf8,#7c3aed);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s}
   #scanBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(56,189,248,0.4)}
+  #downloadBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,183,127,0.4)}
   .hidden{display:none}
 </style>
 </head>
@@ -353,6 +354,11 @@
           <div class="status-value" id="deviceCategory">--</div>
         </div>
       </div>
+    </div>
+
+    <!-- Download -->
+    <div style="text-align:center;margin-top:20px">
+      <button id="downloadBtn" onclick="downloadInfo()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s">Download Report (.txt)</button>
     </div>
   </div>
 
@@ -713,7 +719,102 @@ function generateSummary(){
   let category = document.getElementById('deviceType').textContent;
   document.getElementById('deviceCategory').textContent = category;
 
-  document.getElementById('upgradesCount').innerHTML = '<span class="info-text">4 assessments</span>';
+   document.getElementById('upgradesCount').innerHTML = '<span class="info-text">4 assessments</span>';
+}
+
+function getText(id){
+  const el = document.getElementById(id);
+  if(!el) return '--';
+  const span = el.querySelector('span');
+  return span ? span.textContent : el.textContent;
+}
+
+function downloadInfo(){
+  const sep = '\n' + '='.repeat(60) + '\n';
+  const lines = [
+    'DEVICE SCAN REPORT',
+    'Generated: ' + new Date().toLocaleString(),
+    sep,
+    '[DEVICE IDENTITY]',
+    'User Agent: ' + getText('userAgent'),
+    'Platform: ' + getText('platform'),
+    'Device Type: ' + getText('deviceType'),
+    'OS / Browser: ' + getText('osBrowser'),
+    'Mobile: ' + getText('isMobile'),
+    sep,
+    '[HARDWARE OVERVIEW]',
+    'CPU Cores: ' + getText('cpuCores'),
+    'RAM: ' + getText('deviceMemory'),
+    'Touch Points: ' + (navigator.maxTouchPoints || 'N/A'),
+    'Architecture: ' + getText('arch'),
+    'GPU: ' + getText('gpu'),
+    'GPU Details: ' + getText('gpuDetails'),
+    'WebGL Support: ' + getText('webglSupport').replace(/<[^>]*>/g,'').trim(),
+    'Pixel Ratio: ' + getText('pixelRatio'),
+    sep,
+    '[DISPLAY INFORMATION]',
+    'Screen Resolution: ' + getText('screenRes'),
+    'Available Screen: ' + getText('availScreen'),
+    'Color Depth: ' + getText('colorDepth'),
+    'Screen Size: ' + getText('screenSize'),
+    'Orientation: ' + getText('orientation'),
+    sep,
+    '[STORAGE ANALYSIS]',
+    'Breakdown: ' + getText('storageBreakdown'),
+    'Used: ' + getText('storageUsed'),
+    'Total: ' + getText('storageTotal'),
+    'Free: ' + getText('storageFree'),
+    'Storage Health: ' + getText('storageBadge'),
+    sep,
+    '[BATTERY & POWER]',
+    'Battery Level: ' + getText('batteryLevel'),
+    'Charging: ' + getText('charging'),
+    'Charging Time: ' + getText('chargingTime'),
+    'Discharge Time: ' + getText('dischargeTime'),
+    'Battery Health: ' + getText('batteryBadge'),
+    sep,
+    '[NETWORK INFORMATION]',
+    'Connection Type: ' + getText('netType'),
+    'Effective Type: ' + getText('effType'),
+    'Downlink (Mbps): ' + getText('downlink'),
+    'RTT (ms): ' + getText('rtt'),
+    'Network Health: ' + getText('netBadge'),
+    sep,
+    '[MEDIA DEVICES]',
+    'Cameras: ' + getText('cameras'),
+    'Microphones: ' + getText('microphones'),
+    'Speakers: ' + getText('speakers'),
+    'Audio Output Devices: ' + getText('audioOutputs'),
+    sep,
+    '[PERMISSION STATUS]',
+    'Camera Permission: ' + getText('permCamera'),
+    'Microphone Permission: ' + getText('permMic'),
+    'Geolocation Permission: ' + getText('permGeo'),
+    sep,
+    '[SYSTEM ISSUES]',
+    issues.length === 0 ? 'No issues detected. Your device appears to be in good condition.' : issues.map(i => '[' + i.type.toUpperCase() + '] ' + i.text).join('\n'),
+    sep,
+    '[SCAN SUMMARY]',
+    'Overall Health: ' + getText('overallHealth'),
+    'Issues Found: ' + getText('issuesCount'),
+    'Upgrades Recommended: ' + getText('upgradesCount'),
+    'Device Category: ' + getText('deviceCategory'),
+    '',
+    'NOTE: Browser security limits access to actual hardware details.',
+    'This report is generated from data available via Web APIs.'
+  ];
+
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const fname = 'device-scan-' + new Date().toISOString().slice(0,10) + '.txt';
+  a.download = fname;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>
