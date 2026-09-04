@@ -966,7 +966,9 @@ function checkSoftwareUpdates(){
   // Recommended action with links
   let actionHtml = '';
   const needsOSUpdate = osMajor > 0 && osMajor < minOS;
+  const isOSSupportedButOutdated = osMajor > 0 && osMajor >= minOS && latestOS > 0 && osMajor < latestOS;
   const needsBrowserUpdate = browserMajor > 0 && browserMajor < minBrowser;
+  const isBrowserOutdated = browserMajor > 0 && browserMajor >= minBrowser && latestBrowser > 0 && browserMajor < latestBrowser;
 
   if (needsOSUpdate) {
     if (feasible) {
@@ -978,6 +980,16 @@ function checkSoftwareUpdates(){
     } else {
       actionHtml = '<span class="warn-text">OS update not recommended — device specs too low. Consider a replacement.</span>';
     }
+  } else if (isOSSupportedButOutdated) {
+    if (feasible) {
+      if (osName === 'Android') {
+        actionHtml = 'Go to <strong>Settings › System › System Update</strong> to check for updates. Note: your device may have reached end-of-update support despite meeting minimum specs.';
+      } else if (osName === 'iOS') {
+        actionHtml = 'Go to <strong>Settings › General › Software Update</strong> to check for iOS updates.';
+      }
+    } else {
+      actionHtml = '<span class="warn-text">OS update not recommended — device is too old. Consider a replacement.</span>';
+    }
   } else if (needsBrowserUpdate) {
     if (osName === 'Android') {
       actionHtml = 'Update <strong>' + browserName + '</strong> via the <a href="https://play.google.com/store/apps/details?id=com.android.chrome" target="_blank" class="update-link">Google Play Store</a>.';
@@ -985,6 +997,12 @@ function checkSoftwareUpdates(){
       actionHtml = 'Update <strong>' + browserName + '</strong> via the <strong>App Store</strong> › Updates.';
     } else {
       actionHtml = 'Update <strong>' + browserName + '</strong> to the latest version.';
+    }
+  } else if (isBrowserOutdated) {
+    if (osName === 'Android') {
+      actionHtml = '<strong>' + browserName + '</strong> is outdated but still supported. Update via the <a href="https://play.google.com/store/apps/details?id=com.android.chrome" target="_blank" class="update-link">Google Play Store</a> for security patches.';
+    } else {
+      actionHtml = '<strong>' + browserName + '</strong> has updates available. Consider updating to the latest version for security and performance improvements.';
     }
   } else {
     actionHtml = '<span class="ok-text">All software is up to date. No action needed.</span>';
