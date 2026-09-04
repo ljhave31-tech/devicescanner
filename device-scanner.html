@@ -321,6 +321,22 @@
               <div class="upgrade-badge" id="batteryUpgradeBadge"></div>
             </div>
           </div>
+          <div class="upgrade-item">
+            <div class="upgrade-icon upgrade-cpu"><span>🎮</span></div>
+            <div class="upgrade-content">
+              <div class="upgrade-title">GPU Assessment</div>
+              <div class="upgrade-desc" id="gpuUpgradeDesc">Analyzing graphics processor...</div>
+              <div class="upgrade-badge" id="gpuUpgradeBadge"></div>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="upgrade-icon upgrade-ram"><span>📶</span></div>
+            <div class="upgrade-content">
+              <div class="upgrade-title">Network Assessment</div>
+              <div class="upgrade-desc" id="netUpgradeDesc">Evaluating connection quality...</div>
+              <div class="upgrade-badge" id="netUpgradeBadge"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -379,6 +395,7 @@ function startScan(){
   setTimeout(()=>{
     detectDevice();
     detectCPU();
+    detectMemory();
     detectGPU();
     detectScreen();
     detectStorage();
@@ -409,6 +426,14 @@ function detectDevice(){
   else if (/mobile|iphone|android.*mobile/i.test(ua)) deviceType = 'Phone';
   else if (isMobile) deviceType = 'Mobile Device';
 
+  let inferredType = '';
+  if ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 1 && isMobile) {
+    const diag = Math.sqrt(screen.width*screen.width + screen.height*screen.height) / (window.devicePixelRatio * 96);
+    if (diag >= 7) inferredType = 'Tablet';
+    else if (diag < 7) inferredType = 'Phone';
+  }
+  if (inferredType) deviceType = inferredType;
+
   if ('maxTouchPoints' in navigator) {
     if (navigator.maxTouchPoints > 1 && !isMobile) deviceType = 'Convertible';
   }
@@ -436,6 +461,22 @@ function detectCPU(){
   const cores = navigator.hardwareConcurrency || 0;
   document.getElementById('cpuCores').textContent = cores > 0 ? cores : 'Not Available (Privacy-Restricted)';
   if(cores === 0) issues.push({text:'CPU core count not exposed by browser (privacy feature)', type:'info'});
+}
+
+function detectMemory(){
+  const ram = navigator.deviceMemory || 0;
+  if (ram > 0) {
+    document.getElementById('deviceMemory').textContent = ram + ' GB';
+  } else if (performance.memory && performance.memory.jsHeapSizeLimit) {
+    const heapLimit = performance.memory.jsHeapSizeLimit / 1073741824;
+    document.getElementById('deviceMemory').textContent = '~' + heapLimit.toFixed(1) + ' GB (estimated via heap)';
+  } else {
+    document.getElementById('deviceMemory').textContent = 'Not Available (Privacy-Restricted)';
+    issues.push({text:'RAM not exposed by browser (privacy feature)', type:'info'});
+  }
+
+  const tp = navigator.maxTouchPoints || 0;
+  document.getElementById('touchPoints').textContent = tp > 0 ? tp : 'None';
 }
 
 function detectGPU(){
@@ -577,6 +618,9 @@ function detectNetwork(){
     } else if (c.effectiveType === '3g') {
       badge.textContent = 'Moderate';
       badge.className = 'badge badge-warn';
+      if (c.type === 'wifi' && (c.rtt > 200 || (c.downlink && c.downlink < 2))) {
+        issues.push({text:'WiFi performance is degraded — effective type reports 3g despite being on WiFi', type:'warn'});
+      }
     } else {
       badge.textContent = 'Good';
       badge.className = 'badge badge-ok';
@@ -642,7 +686,7 @@ async function detectPermissions(){
         const status = await navigator.permissions.query({name:p.name});
         const badge = document.getElementById(p.el);
         if(status.state === 'granted') badge.innerHTML = '<span class="badge badge-ok">Granted</span>';
-        else if(status.status === 'denied') badge.innerHTML = '<span class="badge badge-err">Denied</span>';
+        else if(status.state === 'denied') badge.innerHTML = '<span class="badge badge-err">Denied</span>';
         else badge.innerHTML = '<span class="badge badge-info">Prompt</span>';
       } else {
         document.getElementById(p.el).textContent = 'Not Available';
@@ -682,6 +726,48 @@ function analyzeUpgrades(){
   let battBadge = '<span class="badge badge-info">N/A (web)</span>';
   count++;
 
+  // GPU - analyze based on detected renderer
+  let gpuDesc = 'On tablets, the GPU is integrated with the SoC and cannot be upgraded.';
+  if (gpuInfo.renderer) {
+    const r = gpuInfo.renderer.toLowerCase();
+    if (r.includes('mali-t8') || r.includes('mali-t7') || r.includes('adreno 5') || r.includes('adreno 4')) {
+      gpuDesc = gpuInfo.renderer + '. This is an older generation GPU that may struggle with modern games and graphics-intensive apps. Consider replacing the device for better gaming performance.';
+    } else if (r.includes('mali-g') || r.includes('adreno 6') || r.includes('adreno 7') || r.includes('apple')) {
+      gpuDesc = gpuInfo.renderer + '. This is a modern GPU capable of smooth performance in most applications and games.';
+    }
+    gpuDesc += ' On tablets, the GPU is soldered to the SoC and cannot be upgraded.';
+  }
+  let gpuBadge;
+  if (gpuInfo.renderer) {
+    const r = gpuInfo.renderer.toLowerCase();
+    if (r.includes('mali-t8') || r.includes('mali-t7') || r.includes('adreno 5') || r.includes('adreno 4')) {
+      gpuBadge = '<span class="badge badge-warn">Outdated</span>';
+    } else {
+      gpuBadge = '<span class="badge badge-ok">Modern</span>';
+    }
+  } else {
+    gpuBadge = '<span class="badge badge-info">N/A (web)</span>';
+  }
+  count++;
+
+  // Network
+  let netDesc = 'Network performance depends on your router, ISP, and proximity to the access point.';
+  let netBadge = '<span class="badge badge-info">N/A (web)</span>';
+  if ('connection' in navigator) {
+    const c = navigator.connection;
+    if (c.effectiveType === 'slow-2g' || c.effectiveType === '2g') {
+      netDesc = 'Connection reports ' + c.effectiveType + ' speed. This severely impacts web browsing, streaming, and downloads. Move closer to the router, restart networking equipment, or use a mobile hotspot as a workaround.';
+      netBadge = '<span class="badge badge-err">Critical</span>';
+    } else if (c.effectiveType === '3g') {
+      netDesc = 'Connection reports 3g speeds (downlink: ' + (c.downlink || '?') + ' Mbps). If on WiFi, this indicates a weak signal or router issue. Try moving closer to the router, switching to 5GHz band, or restarting the router. On mobile data, consider switching to 4G/5G.';
+      netBadge = '<span class="badge badge-warn">Slow</span>';
+    } else {
+      netDesc = 'Network connection is performing well. No action needed.';
+      netBadge = '<span class="badge badge-ok">Good</span>';
+    }
+  }
+  count++;
+
   document.getElementById('storageUpgradeDesc').textContent = storageDesc;
   document.getElementById('storageUpgradeBadge').innerHTML = storageBadge;
   document.getElementById('ramUpgradeDesc').textContent = ramDesc;
@@ -690,7 +776,11 @@ function analyzeUpgrades(){
   document.getElementById('cpuUpgradeBadge').innerHTML = cpuBadge;
   document.getElementById('batteryUpgradeDesc').textContent = battDesc;
   document.getElementById('batteryUpgradeBadge').innerHTML = battBadge;
-  document.getElementById('upgradesCount').innerHTML = '<span class="info-text">' + count + ' recommendations</span>';
+  document.getElementById('gpuUpgradeDesc').textContent = gpuDesc;
+  document.getElementById('gpuUpgradeBadge').innerHTML = gpuBadge;
+  document.getElementById('netUpgradeDesc').textContent = netDesc;
+  document.getElementById('netUpgradeBadge').innerHTML = netBadge;
+  document.getElementById('upgradesCount').innerHTML = '<span class="info-text">' + count + ' assessments</span>';
 }
 
 function analyzeIssues(){
@@ -718,8 +808,6 @@ function generateSummary(){
 
   let category = document.getElementById('deviceType').textContent;
   document.getElementById('deviceCategory').textContent = category;
-
-   document.getElementById('upgradesCount').innerHTML = '<span class="info-text">4 assessments</span>';
 }
 
 function getText(id){
@@ -790,6 +878,14 @@ function downloadInfo(){
     'Camera Permission: ' + getText('permCamera'),
     'Microphone Permission: ' + getText('permMic'),
     'Geolocation Permission: ' + getText('permGeo'),
+    sep,
+    '[UPGRADE RECOMMENDATIONS]',
+    'Storage: ' + getText('storageUpgradeDesc') + ' [' + getText('storageUpgradeBadge') + ']',
+    'RAM: ' + getText('ramUpgradeDesc') + ' [' + getText('ramUpgradeBadge') + ']',
+    'CPU: ' + getText('cpuUpgradeDesc') + ' [' + getText('cpuUpgradeBadge') + ']',
+    'Battery: ' + getText('batteryUpgradeDesc') + ' [' + getText('batteryUpgradeBadge') + ']',
+    'GPU: ' + getText('gpuUpgradeDesc') + ' [' + getText('gpuUpgradeBadge') + ']',
+    'Network: ' + getText('netUpgradeDesc') + ' [' + getText('netUpgradeBadge') + ']',
     sep,
     '[SYSTEM ISSUES]',
     issues.length === 0 ? 'No issues detected. Your device appears to be in good condition.' : issues.map(i => '[' + i.type.toUpperCase() + '] ' + i.text).join('\n'),
