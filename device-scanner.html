@@ -56,6 +56,10 @@
   .hidden{display:none}
   .update-link{display:inline-block;margin-top:4px;padding:4px 12px;background:#38bdf8;color:#0f172a;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none}
   .update-link:hover{background:#7dd3fc}
+  .update-btn{background:linear-gradient(135deg,#38bdf8,#3b82f6);color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-right:8px;margin-top:4px}
+  .update-btn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(56,189,248,0.4)}
+  .update-btn.os-btn{background:linear-gradient(135deg,#a78bfa,#8b5cf6)}
+  .update-btn.os-btn:hover{box-shadow:0 2px 8px rgba(167,139,255,0.4)}
 </style>
 </head>
 <body>
@@ -414,6 +418,13 @@
           <div class="info-label">Recommended Action</div>
           <div class="info-value" id="updateAction">--</div>
         </div>
+        <div class="info-item full-row">
+          <div class="info-label">Quick Actions</div>
+          <div class="info-value" id="updateButtons">
+            <button id="osUpdateBtn" onclick="showOSUpdateGuide()" class="update-btn" style="display:none">Check OS Updates</button>
+            <button id="browserUpdateBtn" onclick="openBrowserStore()" class="update-btn" style="display:none">Update Browser</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -464,6 +475,8 @@
 let gpuInfo = {vendor:'', renderer:''};
 let issues = [];
 let upgradeRecs = [];
+let browserName = '';
+let currentUA = '';
 
 function startScan(){
   document.getElementById('scanBtn').textContent = 'Scanning...';
@@ -843,7 +856,8 @@ async function detectPermissions(){
 }
 
 function checkSoftwareUpdates(){
-  const ua = navigator.userAgent;
+  currentUA = navigator.userAgent;
+  const ua = currentUA;
 
   // OS detection and version check
   let osName = 'Unknown';
@@ -859,7 +873,7 @@ function checkSoftwareUpdates(){
   document.getElementById('osVersion').textContent = osName + ' ' + osVer;
 
   // Browser detection and version check
-  let browserName = '';
+  browserName = '';
   let browserVer = '';
   if (ua.includes('Edg/')) { browserName = 'Edge'; browserVer = (ua.match(/Edg\/([0-9.]+)/)||['',''])[1]; }
   else if (ua.includes('OPR/')) { browserName = 'Opera'; browserVer = (ua.match(/OPR\/([0-9.]+)/)||['',''])[1]; }
@@ -1004,10 +1018,43 @@ function checkSoftwareUpdates(){
     } else {
       actionHtml = '<strong>' + browserName + '</strong> has updates available. Consider updating to the latest version for security and performance improvements.';
     }
-  } else {
+   } else {
     actionHtml = '<span class="ok-text">All software is up to date. No action needed.</span>';
   }
   document.getElementById('updateAction').innerHTML = actionHtml;
+
+  const osBtn = document.getElementById('osUpdateBtn');
+  const browserBtn = document.getElementById('browserUpdateBtn');
+
+  if (needsOSUpdate || isOSSupportedButOutdated) {
+    osBtn.style.display = 'inline-block';
+  } else {
+    osBtn.style.display = 'none';
+  }
+
+  if (needsBrowserUpdate || isBrowserOutdated) {
+    browserBtn.style.display = 'inline-block';
+  } else {
+    browserBtn.style.display = 'none';
+  }
+}
+
+function showOSUpdateGuide(){
+  const guide = 'To check for system updates:\n\n' +
+    (currentUA.includes('Android') ? '1. Open Settings\n2. Scroll down and tap "System"\n3. Tap "System update" or "Advanced › System update"\n4. Tap "Check for update"\n\nIf an update is available, follow the on-screen instructions. Your device (Android 10) may have reached end-of-update support.\n\nNote: System updates require sufficient battery (>50%) and storage space.' :
+    '1. Open Settings\n2. Tap "General"\n3. Tap "Software Update"\n4. Tap "Download and Install"');
+  alert(guide);
+}
+
+function openBrowserStore(){
+  const storeMap = {
+    'Chrome': 'com.android.chrome',
+    'Edge': 'com.microsoft.emmx',
+    'Opera': 'com.opera.browser',
+    'Firefox': 'org.mozilla.firefox'
+  };
+  const pkg = storeMap[browserName] || 'com.android.chrome';
+  window.open('https://play.google.com/store/apps/details?id=' + pkg, '_blank');
 }
 
 function analyzeUpgrades(){
