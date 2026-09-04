@@ -1065,17 +1065,17 @@ function checkSoftwareUpdates(){
   if (needsOSUpdate) {
     if (feasible) {
       if (osName === 'Android') {
-        actionHtml = 'Go to <strong>Settings › System › System Update</strong> to check for Android updates.';
+         actionHtml = 'Try Settings › Software update, Settings › System › System update, or look for an "Updater" app. Click the Check OS Updates button below for a full guide.';
       } else if (osName === 'iOS') {
         actionHtml = 'Go to <strong>Settings › General › Software Update</strong> to check for iOS updates.';
       }
     } else {
       actionHtml = '<span class="warn-text">OS update not recommended — device specs too low. Consider a replacement.</span>';
     }
-  } else if (isOSSupportedButOutdated) {
+     } else if (isOSSupportedButOutdated) {
     if (feasible) {
       if (osName === 'Android') {
-        actionHtml = 'Go to <strong>Settings › System › System Update</strong> to check for updates. Note: your device may have reached end-of-update support despite meeting minimum specs.';
+        actionHtml = 'Try these to find updates: <strong>Settings › Software update</strong>, <strong>Settings › System › System update</strong>, or look for an "Updater" app in your app drawer. Click the Check OS Updates button below for a full guide. Note: your 5-year-old device may have reached end-of-update support.';
       } else if (osName === 'iOS') {
         actionHtml = 'Go to <strong>Settings › General › Software Update</strong> to check for iOS updates.';
       }
@@ -1118,9 +1118,19 @@ function checkSoftwareUpdates(){
 }
 
 function showOSUpdateGuide(){
-  const guide = 'To check for system updates:\n\n' +
-    (currentUA.includes('Android') ? '1. Open Settings\n2. Scroll down and tap "System"\n3. Tap "System update" or "Advanced › System update"\n4. Tap "Check for update"\n\nIf an update is available, follow the on-screen instructions. Your device (Android 10) may have reached end-of-update support.\n\nNote: System updates require sufficient battery (>50%) and storage space.' :
-    '1. Open Settings\n2. Tap "General"\n3. Tap "Software Update"\n4. Tap "Download and Install"');
+  const guide = 'To check for system updates, try these locations:\n\n' +
+    'Path 1: Settings › Software update (direct, common on most tablets)\n' +
+    'Path 2: Settings › System › System update\n' +
+    'Path 3: Settings › About tablet › System update\n' +
+    'Path 4: Settings › System › Advanced › System update\n' +
+    'Path 5: Settings › Support › Software update\n' +
+    'Path 6: Look for a "Updater" or "Update" app in your app drawer\n\n' +
+    'If no update is found:\n' +
+    '• Your device may have reached end-of-update support (5+ year old tablets often stop receiving major Android updates)\n' +
+    '• Try a factory reset (Settings › System › Reset options › Erase all data) — only after backing up\n' +
+    '• For technically advanced users: custom ROM (LineageOS) can extend life, but requires unlocking bootloader\n\n' +
+    'Requirements: battery >50%, sufficient storage space (>2GB free), and WiFi connection.\n\n' +
+    'If none of these paths exist, your tablet manufacturer may have removed the update feature entirely.';
   alert(guide);
 }
 
