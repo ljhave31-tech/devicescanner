@@ -558,10 +558,10 @@ function startScan(){
     detectNetwork();
     detectMediaDevices();
     detectPermissions();
-    setTimeout(()=>{
+    setTimeout(async ()=>{
       estimateBatteryAge();
       checkSoftwareUpdates();
-      verifyVersion();
+      await verifyVersion();
       analyzeUpgrades();
       analyzeIssues();
       generateSummary();
@@ -1363,8 +1363,7 @@ function generateSummary(){
 function getText(id){
   const el = document.getElementById(id);
   if(!el) return '--';
-  const span = el.querySelector('span');
-  return span ? span.textContent : el.textContent;
+  return el.textContent.trim().replace(/\s+/g, ' ');
 }
 
 function downloadInfo(){
