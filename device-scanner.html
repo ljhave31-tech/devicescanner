@@ -212,6 +212,49 @@
           <div class="info-label">Battery Health</div>
           <div class="info-value" id="batteryHealth"><span class="badge" id="batteryBadge">--</span></div>
         </div>
+        <div class="info-item full-row">
+          <div class="info-label">Drain Rate</div>
+          <div class="info-value" id="drainRate">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Battery Age Estimate</div>
+          <div class="info-value" id="batteryAge">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Estimated Capacity</div>
+          <div class="info-value" id="batteryCapacity">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Battery Conservation Tips -->
+    <div class="card">
+      <h2>Battery Conservation Tips</h2>
+      <div class="info-grid">
+        <div class="info-item full-row">
+          <div class="info-label">Screen Brightness</div>
+          <div class="info-value" id="tipBrightness">Reduce to 30-50% or enable auto-brightness</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Background Apps</div>
+          <div class="info-value" id="tipBackground">Force-stop unused apps in Settings</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Location Services</div>
+          <div class="info-value" id="tipLocation">Set to "While using the app" only</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">WiFi vs Mobile Data</div>
+          <div class="info-value" id="tipNetwork">Use WiFi to reduce cellular radio drain</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Battery Saver</div>
+          <div class="info-value" id="tipSaver">Enable at 30% to extend remaining charge</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Adaptive Battery</div>
+          <div class="info-value" id="tipAdaptive">Enable in Settings to limit infrequently used apps</div>
+        </div>
       </div>
     </div>
 
@@ -404,6 +447,7 @@ function startScan(){
     detectMediaDevices();
     detectPermissions();
     setTimeout(()=>{
+      estimateBatteryAge();
       analyzeUpgrades();
       analyzeIssues();
       generateSummary();
@@ -566,7 +610,11 @@ async function detectStorage(){
   }
 }
 
+let batteryHistory = [];
+let batteryMonitorInterval = null;
+
 async function detectBattery(){
+  stopBatteryMonitor();
   try {
     if ('getBattery' in navigator) {
       const bat = await navigator.getBattery();
@@ -591,6 +639,34 @@ async function detectBattery(){
         badge.textContent = 'Good';
         badge.className = 'badge badge-ok';
       }
+
+      batteryHistory = [{level: bat.level, charging: bat.charging, time: Date.now()}];
+
+      batteryMonitorInterval = setInterval(async () => {
+        try {
+          const b = await navigator.getBattery();
+          batteryHistory.push({level: b.level, charging: b.charging, time: Date.now()});
+          if (batteryHistory.length > 10) batteryHistory.shift();
+
+          const first = batteryHistory[0];
+          const last = batteryHistory[batteryHistory.length - 1];
+          const mins = (last.time - first.time) / 60000;
+          if (mins >= 0.5 && !last.charging) {
+            const drain = Math.round((first.level - last.level) * 100 / mins);
+            const rateEl = document.getElementById('drainRate');
+            if (drain > 0) {
+              rateEl.innerHTML = '<span class="warn-text">' + drain + '%/hr</span>';
+              if (drain > 15) {
+                issues.push({text:'Fast battery drain detected (' + drain + '% per hour)', type:'warn'});
+              }
+            } else if (drain === 0) {
+              rateEl.innerHTML = '<span class="ok-text">Stable</span>';
+            } else {
+              rateEl.innerHTML = '<span class="ok-text">Charging</span>';
+            }
+          }
+        } catch(e) {}
+      }, 45000);
     } else {
       document.getElementById('batteryLevel').textContent = 'Not Available';
       document.getElementById('batteryBadge').textContent = 'Unknown';
@@ -599,6 +675,41 @@ async function detectBattery(){
   } catch(e) {
     document.getElementById('batteryLevel').textContent = 'Unknown';
     issues.push({text:'Could not access battery information', type:'info'});
+  }
+}
+
+function estimateBatteryAge(){
+  const ua = navigator.userAgent;
+  const gpu = gpuInfo.renderer ? gpuInfo.renderer.toLowerCase() : '';
+  let deviceAge = 0;
+
+  if (gpu.includes('mali-t8') || gpu.includes('mali-t7') || gpu.includes('adreno 4') || gpu.includes('adreno 5')) {
+    deviceAge = 5;
+  } else if (gpu.includes('mali-g') || gpu.includes('adreno 6') || gpu.includes('adreno 7')) {
+    deviceAge = 2;
+  } else {
+    deviceAge = 3;
+  }
+
+  const estimatedCapacity = Math.max(20, 100 - (deviceAge * 15));
+
+  const ageEl = document.getElementById('batteryAge');
+  const capEl = document.getElementById('batteryCapacity');
+
+  if (deviceAge >= 4) {
+    ageEl.innerHTML = '<span class="warn-text">~' + deviceAge + ' years old</span>';
+    capEl.innerHTML = '<span class="warn-text">~' + estimatedCapacity + '% original capacity</span>';
+    issues.push({text:'Battery may be degraded (' + deviceAge + ' year old device, ~' + estimatedCapacity + '% capacity remaining)', type:'warn'});
+  } else {
+    ageEl.innerHTML = '<span class="ok-text">~' + deviceAge + ' years old</span>';
+    capEl.innerHTML = '<span class="ok-text">~' + estimatedCapacity + '% original capacity</span>';
+  }
+}
+
+function stopBatteryMonitor(){
+  if (batteryMonitorInterval) {
+    clearInterval(batteryMonitorInterval);
+    batteryMonitorInterval = null;
   }
 }
 
@@ -724,6 +835,14 @@ function analyzeUpgrades(){
   // Battery
   let battDesc = 'Battery health depends on age and charge cycles. Tablet batteries are often replaceable by service centers but not user-upgradeable.';
   let battBadge = '<span class="badge badge-info">N/A (web)</span>';
+
+  if (gpuInfo.renderer) {
+    const r = gpuInfo.renderer.toLowerCase();
+    if (r.includes('mali-t8') || r.includes('mali-t7') || r.includes('adreno 4') || r.includes('adreno 5')) {
+      battDesc = 'Device is likely 4-6 years old. Battery degradation is probable and a leading cause of fast drain. Consider replacing the battery at a service center. In the meantime: reduce screen brightness, close background apps, disable location services for unused apps, and enable battery saver mode.';
+      battBadge = '<span class="badge badge-warn">Likely Degraded</span>';
+    }
+  }
   count++;
 
   // GPU - analyze based on detected renderer
@@ -860,6 +979,10 @@ function downloadInfo(){
     'Charging Time: ' + getText('chargingTime'),
     'Discharge Time: ' + getText('dischargeTime'),
     'Battery Health: ' + getText('batteryBadge'),
+    'Drain Rate: ' + getText('drainRate'),
+    'Battery Age: ' + getText('batteryAge'),
+    'Estimated Capacity: ' + getText('batteryCapacity'),
+    'Storage: ' + getText('storageUpgradeDesc'),
     sep,
     '[NETWORK INFORMATION]',
     'Connection Type: ' + getText('netType'),
