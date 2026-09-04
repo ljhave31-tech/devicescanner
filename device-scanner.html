@@ -458,6 +458,41 @@
       </div>
     </div>
 
+    <!-- Version Verification -->
+    <div class="card">
+      <h2>Version Verification</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">UA String Version</div>
+          <div class="info-value" id="uaVersion">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Client Hints Version</div>
+          <div class="info-value" id="uachVersion">Checking...</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Chrome Version</div>
+          <div class="info-value" id="chromeVersion">--</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Feature Detection</div>
+          <div class="info-value" id="featureVersion">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Consistency Check</div>
+          <div class="info-value" id="consistencyCheck">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Recommendation</div>
+          <div class="info-value" id="versionRecommendation">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Verify Independently</div>
+          <div class="info-value" style="font-size:13px;color:#94a3b8;line-height:1.5">Install a system info app like <strong>CPU-Z</strong> or <strong>DroidInfo</strong> from Play Store — these read directly from the Android system, providing the true version regardless of browser reporting.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Issues -->
     <div class="card">
       <h2>System Issues</h2>
@@ -526,6 +561,7 @@ function startScan(){
     setTimeout(()=>{
       estimateBatteryAge();
       checkSoftwareUpdates();
+      verifyVersion();
       analyzeUpgrades();
       analyzeIssues();
       generateSummary();
@@ -1112,6 +1148,97 @@ function submitActualVersion(){
   location.reload();
 }
 
+async function verifyVersion(){
+  const ua = currentUA;
+  const uaVer = (ua.match(/Android\s([0-9.]+)/)||['',''])[1];
+  const uaMajor = parseInt(uaVer) || 0;
+  document.getElementById('uaVersion').textContent = 'Android ' + (uaVer || 'Unknown');
+
+  const chromeVer = (ua.match(/Chrome\/([0-9.]+)/)||['',''])[1];
+  document.getElementById('chromeVersion').textContent = 'Chrome ' + (chromeVer || 'Unknown');
+
+  // UA Client Hints - tries high-entropy values
+  let uachVer = 'Not Available';
+  if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+    try {
+      const data = await navigator.userAgentData.getHighEntropyValues(['platform', 'platformVersion', 'architecture', 'model']);
+      uachVer = data.platformVersion;
+      document.getElementById('uachVersion').innerHTML = 'Android ' + uachVer + ' <span class="badge badge-info">Client Hints</span>';
+    } catch(e) {
+      document.getElementById('uachVersion').innerHTML = '<span class="err-text">Permission denied</span>';
+    }
+  } else if (navigator.userAgentData && navigator.userAgentData.platformVersion) {
+    uachVer = navigator.userAgentData.platformVersion;
+    document.getElementById('uachVersion').innerHTML = 'Android ' + uachVer + ' <span class="badge badge-info">Direct</span>';
+  } else {
+    document.getElementById('uachVersion').innerHTML = '<span class="badge badge-info">Not supported</span>';
+  }
+
+  const uachMajor = parseInt(uachVer) || 0;
+
+  // Feature-based detection
+  let featureVer = 10;
+  let features = [];
+
+  try {
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+      features.push('mediaSession (A11+)');
+      featureVer = Math.max(featureVer, 11);
+    }
+  } catch(e) {}
+  try {
+    if ('serviceWorker' in navigator && 'navigationPreload' in (await navigator.serviceWorker.ready).navigationPreload) {
+      features.push('SW navigationPreload (A12+)');
+      featureVer = Math.max(featureVer, 12);
+    }
+  } catch(e) {}
+  try {
+    if (window.showOpenFilePicker) {
+      features.push('showOpenFilePicker (A12+)');
+      featureVer = Math.max(featureVer, 12);
+    }
+  } catch(e) {}
+  try {
+    if (navigator.serial) {
+      features.push('WebSerial (A10+)');
+      featureVer = Math.max(featureVer, 10);
+    }
+  } catch(e) {}
+  try {
+    if (navigator.usb) {
+      features.push('WebUSB (A10+)');
+    }
+  } catch(e) {}
+
+  document.getElementById('featureVersion').innerHTML = 
+    features.length > 0 ? 'Android ' + featureVer + '+ (' + features.join(', ') + ')' : 
+    '<span class="info-text">No version-specific features detected</span> (' + featureVer + '+)';
+
+  // Consistency analysis
+  let consistencyHtml = '';
+  if (uachMajor > 0 && uachMajor !== uaMajor && Math.abs(uachMajor - uaMajor) >= 1) {
+    consistencyHtml = '<span class="warn-text">⚠ Inconsistency: UA reports Android ' + uaMajor + ' but Client Hints reports Android ' + uachMajor + '</span>';
+    issues.push({text: 'Version mismatch: UA says Android ' + uaMajor + ' but Client Hints reports Android ' + uachMajor, type: 'warn'});
+  } else if (uachMajor > 0 && uachMajor === uaMajor) {
+    consistencyHtml = '<span class="ok-text">✓ UA string and Client Hints agree on Android ' + uaMajor + '</span>';
+  } else {
+    consistencyHtml = '<span class="info-text">Cannot verify via Client Hints (unavailable or denied)</span>';
+  }
+  document.getElementById('consistencyCheck').innerHTML = consistencyHtml;
+
+  // Recommendation
+  let recHtml = '';
+  if (uachMajor > 0 && uachMajor !== uaMajor) {
+    const correctVer = uachMajor > uaMajor ? uachMajor : uaMajor;
+    recHtml = '<span class="warn-text">Client Hints reports Android ' + uachMajor + ', which differs from UA string (Android ' + uaMajor + '). Settings likely shows Android ' + correctVer + '. Use a system info app (CPU-Z) to confirm.</span>';
+  } else if (uachMajor > 0 && uachMajor === uaMajor) {
+    recHtml = '<span class="ok-text">UA and Client Hints both agree on Android ' + uaMajor + '. Trust the Settings app if it matches this version.</span>';
+  } else {
+    recHtml = '<span class="info-text">Client Hints unavailable. UA string reports Android ' + uaMajor + '. If Settings shows a different version, install CPU-Z to verify the true version.</span>';
+  }
+  document.getElementById('versionRecommendation').innerHTML = recHtml;
+}
+
 function analyzeUpgrades(){
   const cores = navigator.hardwareConcurrency || 0;
   const ram = navigator.deviceMemory || 0;
@@ -1321,8 +1448,16 @@ function downloadInfo(){
     'Update Feasibility: ' + getText('updateFeasibility'),
     'Recommended Action: ' + getText('updateAction').replace(/<[^>]*>/g,'').trim(),
     'Scanned OS Version: ' + getText('scannedOSVersion'),
-    'Verified OS Status: ' + getText('verifiedOSStatus').replace(/<[^>]*>/g,'').trim(),
-    sep,
+     'Verified OS Status: ' + getText('verifiedOSStatus').replace(/<[^>]*>/g,'').trim(),
+     sep,
+     '[VERSION VERIFICATION]',
+     'UA String Version: ' + getText('uaVersion'),
+     'Client Hints Version: ' + getText('uachVersion').replace(/<[^>]*>/g,'').trim(),
+     'Chrome Version: ' + getText('chromeVersion'),
+     'Feature Detection: ' + getText('featureVersion').replace(/<[^>]*>/g,'').trim(),
+     'Consistency Check: ' + getText('consistencyCheck').replace(/<[^>]*>/g,'').trim(),
+     'Recommendation: ' + getText('versionRecommendation').replace(/<[^>]*>/g,'').trim(),
+     sep,
     '[SYSTEM ISSUES]',
     issues.length === 0 ? 'No issues detected. Your device appears to be in good condition.' : issues.map(i => '[' + i.type.toUpperCase() + '] ' + i.text).join('\n'),
     sep,
