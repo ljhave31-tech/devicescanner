@@ -428,6 +428,36 @@
       </div>
     </div>
 
+    <!-- Settings Cross-Check -->
+    <div class="card">
+      <h2>Settings Cross-Check</h2>
+      <div class="info-grid">
+        <div class="info-item full-row">
+          <div class="info-label">Scanned OS Version</div>
+          <div class="info-value" id="scannedOSVersion">--</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Discrepancy Note</div>
+          <div class="info-value" style="font-size:13px;color:#94a3b8;line-height:1.5">The browser's user-agent may report an older Android version (e.g., from WebView) that differs from what's shown in Settings. This is common on Android 12+ where Chrome reports a different version than the OS.</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Your Actual OS Version</div>
+          <div class="info-value">
+            <input type="number" id="actualOSVersion" placeholder="e.g. 15" min="1" max="20" style="background:#0f172a;color:#e2e8f0;border:1px solid #334159;border-radius:6px;padding:6px 10px;width:120px;font-size:14px">
+            <button onclick="submitActualVersion()" style="background:linear-gradient(135deg,#38bdf8,#7c3aed);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px">Verify</button>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Updated Status</div>
+          <div class="info-value" id="verifiedOSStatus">Enter version and click Verify</div>
+        </div>
+        <div class="info-item full-row">
+          <div class="info-label">Find Version in Settings</div>
+          <div class="info-value" style="font-size:13px;color:#94a3b8;line-height:1.5">Settings › About tablet › Android version  <span style="color:#38bdf8">(or Settings › About phone › Software information › Android version)</span></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Issues -->
     <div class="card">
       <h2>System Issues</h2>
@@ -477,6 +507,7 @@ let issues = [];
 let upgradeRecs = [];
 let browserName = '';
 let currentUA = '';
+let manualOSVersion = localStorage ? (parseInt(localStorage.getItem('manualOSVersion')) || null) : null;
 
 function startScan(){
   document.getElementById('scanBtn').textContent = 'Scanning...';
@@ -869,8 +900,19 @@ function checkSoftwareUpdates(){
     osName = 'iOS';
     osVer = (ua.match(/OS\s([0-9_]+)/)||['',''])[1].replace('_','.');
   }
-  const osMajor = parseInt((osVer||'0').split('.')[0]) || 0;
+  let osMajor = parseInt((osVer||'0').split('.')[0]) || 0;
   document.getElementById('osVersion').textContent = osName + ' ' + osVer;
+  document.getElementById('scannedOSVersion').textContent = osName + ' ' + osVer + ' (from user-agent)';
+
+  if (manualOSVersion !== null) {
+    document.getElementById('actualOSVersion').value = manualOSVersion;
+    osMajor = manualOSVersion;
+    osVer = String(manualOSVersion);
+    document.getElementById('osVersion').textContent = osName + ' ' + osVer + ' (verified by user)';
+    document.getElementById('verifiedOSStatus').innerHTML = '<span class="ok-text">Version verified — recommendations updated</span>';
+  } else {
+    document.getElementById('verifiedOSStatus').innerHTML = '<span class="info-text">Enter your actual Settings version above</span>';
+  }
 
   // Browser detection and version check
   browserName = '';
@@ -1055,6 +1097,19 @@ function openBrowserStore(){
   };
   const pkg = storeMap[browserName] || 'com.android.chrome';
   window.open('https://play.google.com/store/apps/details?id=' + pkg, '_blank');
+}
+
+function submitActualVersion(){
+  const input = document.getElementById('actualOSVersion');
+  const val = parseInt(input.value) || 0;
+  if (val < 1 || val > 20) {
+    alert('Please enter a valid Android version (1-20).');
+    input.focus();
+    return;
+  }
+  manualOSVersion = val;
+  if (localStorage) localStorage.setItem('manualOSVersion', val);
+  location.reload();
 }
 
 function analyzeUpgrades(){
@@ -1264,7 +1319,9 @@ function downloadInfo(){
     'Browser: ' + getText('browserVersion'),
     'Browser Status: ' + getText('browserStatus'),
     'Update Feasibility: ' + getText('updateFeasibility'),
-    'Recommended Action: ' + getText('updateAction'),
+    'Recommended Action: ' + getText('updateAction').replace(/<[^>]*>/g,'').trim(),
+    'Scanned OS Version: ' + getText('scannedOSVersion'),
+    'Verified OS Status: ' + getText('verifiedOSStatus').replace(/<[^>]*>/g,'').trim(),
     sep,
     '[SYSTEM ISSUES]',
     issues.length === 0 ? 'No issues detected. Your device appears to be in good condition.' : issues.map(i => '[' + i.type.toUpperCase() + '] ' + i.text).join('\n'),
